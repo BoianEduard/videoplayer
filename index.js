@@ -162,7 +162,8 @@ canvas.addEventListener("click", (e) => {
 
     //volume control
     if ((mouseX >= canvas.width -60) && (mouseX <= canvas.width - 20) && (mouseY >= ctrlY) && (mouseY<= ctrlY +buttonSize)) {
-        videoPlayer.volume = (ctrlY + buttonSize-mouseY) / buttonSize;
+        const volume =(ctrlY + buttonSize-mouseY) / buttonSize; // set volume
+        videoPlayer.volume = volume
         localStorage.setItem("volume", videoPlayer.volume);
     }
 });
