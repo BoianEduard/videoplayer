@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player</title>
+    
+    <link rel="icon" href="data:,"> <!-- stop favicon error from showing -->
+    <link rel="stylesheet" href="stylesheet.css">
+</head>
+<body>
+
+    <video id="videoPlayer" class="hidden">
+        <source src="" type="video/mp4"> 
+    </video>
+
+    <video id="previewVideo" class="hidden"> 
+        <source src="" type="video/mp4"> 
+    </video>
+
+    <div class="container-video">
+        <canvas id="mainCanvas"></canvas>
+        <canvas id="previewCanvas" class="preview-canvas"></canvas>
+    </div>
+
+    <div class="effect-container">
+        <label for="effectSelect">Choose an effect:</label>
+        <select id="effectSelect" aria-label="Select video effect">
+            <option value="none">No Effect</option>
+            <option value="pixelate">Pixelate</option>
+            <option value="colorShift">Color Shift</option>
+            <option value="wave">Wave Effect</option>
+        </select>
+    </div>
+
+     <div id="playlist" class="playlist">
+        <h3>Video Playlist</h3>
+    </div>
+
+    <div id="dropZone" class="dropzone">
+        <p>Drop videos here</p>
+        <input type="file" id="fileInput" accept="video/*" multiple aria-label="Upload video files">
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>
