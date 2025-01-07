@@ -33,7 +33,11 @@ const preview = document.getElementById('previewCanvas');
 const ptx = preview.getContext('2d');
 
 const playlistContainer = document.getElementById("playlist");
-const playlist = JSON.parse(localStorage.getItem('videoPlaylist')) || playlistDef; // if no playlist is already stored get the default one
+const playlist = JSON.parse(localStorage.getItem('videoPlaylist')); // if no playlist is already stored get the default one
+if (playlist.length === 0) {
+    playlist = playlistDef;
+    localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
+}
 
 const videoPlayer = document.getElementById("videoPlayer");
 const previewVideo = document.getElementById('previewVideo');
@@ -50,7 +54,12 @@ let fromIdx = null;  // use later for drag drop
 
 document.addEventListener("DOMContentLoaded", () => { //on page load
     upsertPlaylist();
-    playVideo(currentVideo);  // execute these 2 on page load
+    if (playlist.length > 0) {
+        playVideo(currentVideo);
+    } else {
+        // Set a fallback video source
+        videoPlayer.src = 'path/to/default/video.mp4'; // or just leave empty
+    }
     previewVideo.src = videoPlayer.src;
 });
 
