@@ -33,7 +33,7 @@ const preview = document.getElementById('previewCanvas');
 const ptx = preview.getContext('2d');
 
 const playlistContainer = document.getElementById("playlist");
-const playlist = JSON.parse(localStorage.getItem('videoPlaylist')); // if no playlist is already stored get the default one
+let playlist = JSON.parse(localStorage.getItem('videoPlaylist')); // if no playlist is already stored get the default one
 if (playlist.length === 0) {
     playlist = playlistDef;
     localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
