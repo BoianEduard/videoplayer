@@ -41,6 +41,7 @@ if (playlist.length === 0) {
 
 const videoPlayer = document.getElementById("videoPlayer");
 const previewVideo = document.getElementById('previewVideo');
+videoPlayer.muted = false;
 videoPlayer.volume = parseFloat(localStorage.getItem("volume")) || 0; // sound off by default
 
 let currentVideo = parseInt(localStorage.getItem("currentVideo")) || 0;
