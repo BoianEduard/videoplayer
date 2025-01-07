@@ -1,23 +1,23 @@
 const playlistDef = [
     {
         name:"Austria",
-        src:"media/video1.mp4"
+        src:"./media/video1.mp4"
     },
     {
         name:"USA",
-        src:"media/video2.mp4"
+        src:"./media/video2.mp4"
     },
     {
         name:"Ocean",
-        src:"media/video3.mp4"
+        src:"./media/video3.mp4"
     },
     {
         name:"San Francisco",
-        src:"media/video4.mp4"
+        src:"./media/video4.mp4"
     },
     {
         name:"Mountains",
-        src:"media/video5.mp4"
+        src:"./media/video5.mp4"
     },
 ];
 
@@ -33,15 +33,14 @@ const preview = document.getElementById('previewCanvas');
 const ptx = preview.getContext('2d');
 
 const playlistContainer = document.getElementById("playlist");
-let playlist = JSON.parse(localStorage.getItem('videoPlaylist')); // if no playlist is already stored get the default one
+let playlist = JSON.parse(localStorage.getItem('videoPlaylist')); 
 if (playlist.length === 0) {
-    playlist = playlistDef;
+    playlist = playlistDef; // if we delete all the elements revert back to the default playlist
     localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
 }
 
 const videoPlayer = document.getElementById("videoPlayer");
 const previewVideo = document.getElementById('previewVideo');
-videoPlayer.muted = false;
 videoPlayer.volume = parseFloat(localStorage.getItem("volume")) || 0; // sound off by default
 
 let currentVideo = parseInt(localStorage.getItem("currentVideo")) || 0;
