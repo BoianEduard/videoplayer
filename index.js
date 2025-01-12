@@ -44,16 +44,14 @@ let currentVideo = 0;
 
 const videoPlayer = document.getElementById("videoPlayer");
 const previewVideo = document.getElementById('previewVideo');
+const defaultButton = document.getElementById("defaultButton");
 
 // ----------------- EVENT       LISTENERS -----------------
 
 document.addEventListener("DOMContentLoaded", () =>
 {
     playlistVid = JSON.parse(localStorage.getItem('videoPlaylist')) || [];
-    if (playlistVid.length === 0) {
-        playlistVid = playlistDef; // GET DEFAULT if empty
-        localStorage.setItem('videoPlaylist', JSON.stringify(playlistVid));
-    }
+    
 
     videoPlayer.volume = parseFloat(localStorage.getItem("volume")) || 0;
     videoPlayer.currentTime = parseFloat(localStorage.getItem("currentTime")) || 0;
@@ -93,6 +91,11 @@ videoPlayer.addEventListener("ended", () => {
     playVideo(currentVideo);
 });
 
+defaultButton.addEventListener("click", () => {
+    playlistVid = [...playlistDef];
+    upsertPlaylist();
+    playVideo(0);
+});
 
 canvas.addEventListener("dblclick", () => {
     if (!document.fullscreenElement){
