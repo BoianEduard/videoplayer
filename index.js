@@ -19,7 +19,12 @@ const playlistDef = [
         name:"Mountains",
         src:"./media/video5.mp4"
     },
+    {
+        name:"audiotest",
+        src:"./media/video6.mp4"
+    },
 ];
+
 
 
 // ----------------- VARIABLES -----------------
@@ -28,43 +33,48 @@ const dropZone = document.getElementById("dropZone");
 const fileInput = document.getElementById("fileInput");
 
 const canvas = document.getElementById("mainCanvas");
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d",{willReadFrequently: true});  // set the context to read frequently
 const preview = document.getElementById('previewCanvas');
-const ptx = preview.getContext('2d');
+const ptx = preview.getContext('2d',{willReadFrequently: true}); // we do this because "Multiple readback operations using getImageData are faster"
 
-const playlistContainer = document.getElementById("playlist");
-let playlist = JSON.parse(localStorage.getItem('videoPlaylist')); 
-if (playlist.length === 0) {
-    playlist = playlistDef; // if we delete all the elements revert back to the default playlist
-    localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
-}
+
+const playlist = document.getElementById("playlist");
+let playlistVid = [];
+let currentVideo = 0;
 
 const videoPlayer = document.getElementById("videoPlayer");
 const previewVideo = document.getElementById('previewVideo');
-videoPlayer.volume = parseFloat(localStorage.getItem("volume")) || 0; // sound off by default
 
-let currentVideo = parseInt(localStorage.getItem("currentVideo")) || 0;
-if (isNaN(currentVideo) || currentVideo < 0 || currentVideo >= playlist.length) {
-    currentVideo = 0; // revert to first video if invalid
-} // this validation is needed to avvoid errors that appear from the NaN value instead of 0 as returned index sometimes
+// ----------------- EVENT       LISTENERS -----------------
 
-let fromIdx = null;  // use later for drag drop
-
-// ----------------- EVENT LISTENERS-----------------
-
-document.addEventListener("DOMContentLoaded", () => { //on page load
-    upsertPlaylist();
-    if (playlist.length > 0) {
-        playVideo(currentVideo);
-    } else {
-        // Set a fallback video source
-        videoPlayer.src = 'path/to/default/video.mp4'; // or just leave empty
+document.addEventListener("DOMContentLoaded", () =>
+{
+    playlistVid = JSON.parse(localStorage.getItem('videoPlaylist')) || [];
+    if (playlistVid.length === 0) {
+        playlistVid = playlistDef; // GET DEFAULT if empty
+        localStorage.setItem('videoPlaylist', JSON.stringify(playlistVid));
     }
-    previewVideo.src = videoPlayer.src;
+
+    videoPlayer.volume = parseFloat(localStorage.getItem("volume")) || 0;
+    videoPlayer.currentTime = parseFloat(localStorage.getItem("currentTime")) || 0;
+
+    currentVideo = parseInt(localStorage.getItem("currentVideo")) || 0;
+    if (isNaN(currentVideo) || currentVideo < 0 || currentVideo >= playlistVid.length) {
+        currentVideo = 0;
+    }
+    upsertPlaylist();
+
+    if (playlistVid.length > 0) {
+        playVideo(currentVideo);
+        videoPlayer.pause();  // pause on reload or first load
+    } else {
+        videoPlayer.src = ''; 
+    }
 });
 
-
-videoPlayer.addEventListener("play", drawFrame);
+window.addEventListener("beforeunload", () => {
+    localStorage.setItem("currentTime",videoPlayer.currentTime)
+});
 
 videoPlayer.addEventListener("loadedmetadata", () => { // on video load
     canvas.width = videoPlayer.videoWidth;
@@ -74,95 +84,118 @@ videoPlayer.addEventListener("loadedmetadata", () => { // on video load
     preview.height = 100; 
 });
 
+
+videoPlayer.addEventListener("play", drawFrame(ctx,videoPlayer));
+
+
 videoPlayer.addEventListener("ended", () => {
-    currentVideo = (currentVideo +1) % playlist.length;  // revert to first if last
+    currentVideo = (currentVideo +1) % playlistVid.length;  // revert to first if last
     playVideo(currentVideo);
 });
 
 
+canvas.addEventListener("dblclick", () => {
+    if (!document.fullscreenElement){
+        canvas.requestFullscreen()
+} else {
+        document.exitFullscreen();
+    }
+});
+
+
 canvas.addEventListener("mousemove", (e) => {
+    previewVideo.src = videoPlayer.src;
     const canvasDim = canvas.getBoundingClientRect();
     const scaleX = canvas.width / canvasDim.width;
     const scaleY = canvas.height / canvasDim.height;
 
-    const x = (e.clientX - canvasDim.left) * scaleX;
-    const y = (e.clientY - canvasDim.top) * scaleY;
+    const mouseX = (e.clientX - canvasDim.left) * scaleX;
+    const mouseY = (e.clientY -canvasDim.top) * scaleY; // get y mouse coord
 
     const ctrlY = canvas.height - 50;
     const pbY = ctrlY - 20;
 
-    if (y >= pbY - 10 && y <= pbY) {
+    if (( mouseY>= pbY - 8) && (mouseY <= pbY + 3) && (mouseX <= canvas.width)) {  
         preview.style.display = 'block'; 
+
         
-        preview.style.left = `${e.clientX - canvasDim.left - preview.width/2}px`;
+        const previewX = canvasDim.left; // place left 
+        const previewY = canvasDim.top;  // top 
+       
+       preview.style.left = `${previewX}px`; 
+       preview.style.top = `${previewY}px`;
 
-        const newTime = (x / canvas.width) * videoPlayer.duration;
+
+        const newTime = (mouseX/canvas.width) * videoPlayer.duration;
         previewVideo.currentTime = newTime;
-        ptx.clearRect(0, 0, preview.width, preview.height);
-        ptx.drawImage(previewVideo, 0, 0, preview.width, preview.height);
-
+        drawFrame(ptx,previewVideo);
         }  else {
-        preview.style.display = 'none'; 
+        preview.style.display = 'none'; // if it is not over the progress bar, hide the preview
     } 
 });
 
+
 // seeked fires after seeking event ie after the user has moved the cursor to the new positio
 previewVideo.addEventListener('seeked', () => {
-        ptx.clearRect(0, 0, preview.width, preview.height);
-        ptx.drawImage(previewVideo, 0, 0, preview.width, preview.height);
+        ptx.clearRect(0,0, preview.width, preview.height);
+        ptx.drawImage(previewVideo, 0,0, preview.width,preview.height); 
 });
+
 
 // on mouse leave clear the preview just in case
 canvas.addEventListener("mouseleave", () => {
-    preview.style.display = 'none';
+    preview.style.display = 'none'; // just in case on mouseleave hide the preview again
     ptx.clearRect(0, 0, preview.width, preview.height);
-});
+}); 
+
 
 canvas.addEventListener("click", (e) => {
 
     const canvasDim = canvas.getBoundingClientRect(); // canvas size
 
-    //canvas scale
-    const scaleX = canvas.width / canvasDim.width;     
+    //canvas "scale" -ratio of canvas size to actual video size
+    const scaleX = canvas.width/ canvasDim.width;     
     const scaleY = canvas.height / canvasDim.height; 
-
     //mouse coordinates relative to canvas
-    const mouseX = (e.clientX - canvasDim.left) * scaleX;  
-    const mouseY = (e.clientY - canvasDim.top) * scaleY;    
+    const mouseX = (e.clientX-canvasDim.left)* scaleX;  
+    const mouseY = (e.clientY -canvasDim.top) * scaleY;    
 
-    const ctrlY = canvas.height - 50; // get control Y
-    const pbY = ctrlY - 20; // get progress bar Y
-    const buttonSize = 40; 
+    const ctrlY = canvas.height - 50; // get approximate control Y coord of buttons and volum
+    const pbY = ctrlY - 20; // get progress bar Y coord
+    const btnSize = 40; 
 
     //progress bar
-    if ((mouseY >= pbY - 10) && (mouseY <= pbY)) {  
-        const newTime = (mouseX / canvas.width) * videoPlayer.duration;
+    if (( mouseY>= pbY - 8) && (mouseY <= pbY + 3) && (mouseX <= canvas.width)) {  
+        const newTime = (mouseX/canvas.width) * videoPlayer.duration; //calculate the new time by canvas size and mouse position relative to video player
         videoPlayer.currentTime = newTime;
     }
 
     // play pause button
-    if ((mouseX >= 20) && (mouseX <= 20 + buttonSize) && (mouseY >= ctrlY && mouseY <= ctrlY + buttonSize)) { //check for play/pause
+    if ((mouseX >= 20) && (mouseX <= 20 + btnSize) &&(mouseY >= ctrlY && mouseY <= ctrlY+btnSize)) { //check for play/pause
         if (videoPlayer.paused) {
             videoPlayer.play();
         } else {
-            videoPlayer.pause();
-        }
+            videoPlayer.pause(); }
     }
-
     //prev button
-    if ((mouseX >= 70) && (mouseX <= 70 + buttonSize)&& (mouseY>= ctrlY) && (mouseY <= ctrlY+ buttonSize)) { //check for prevbtn
-        currentVideo = (currentVideo - 1 + playlist.length) % playlist.length; // go to last if first -> shorter than ifelse
+    if ((mouseX >= 70)&& (mouseX <= 70 +btnSize) && (mouseY>= ctrlY) && (mouseY <=ctrlY+btnSize)) {
+        currentVideo =(currentVideo - 1+ playlistVid.length) % playlistVid.length; // go to last if first -> shorter than ifelse
         playVideo(currentVideo);
     }
 
     //next button
-    if ((mouseX >= 120 && mouseX <= 120 + buttonSize) &&  (mouseY >= ctrlY) && (mouseY <= ctrlY + buttonSize)) {
-        playVideo((currentVideo + 1) % playlist.length);
+    if ((mouseX >= 120 && mouseX <= 120 + btnSize) &&  (mouseY>=ctrlY) && (mouseY <= ctrlY+btnSize)) {
+        playVideo((currentVideo + 1) % playlistVid.length);
     }
 
+     //mute btn 
+     if ((mouseX >= canvas.width - 135) && (mouseX <= canvas.width - 70) && (mouseY >= ctrlY) && (mouseY <=ctrlY+btnSize)) {
+     videoPlayer.muted = !videoPlayer.muted;
+    }
     //volume control
-    if ((mouseX >= canvas.width -60) && (mouseX <= canvas.width - 20) && (mouseY >= ctrlY) && (mouseY<= ctrlY +buttonSize)) {
-        const volume =(ctrlY + buttonSize-mouseY) / buttonSize; // set volume
+    if ((mouseX >= canvas.width -60) && (mouseX <= canvas.width - 20) && (mouseY >= ctrlY) && (mouseY<= ctrlY+btnSize)) {
+        const volume =(ctrlY+btnSize-mouseY) / btnSize; // set volume
+        videoPlayer.muted = false;
         videoPlayer.volume = volume
         localStorage.setItem("volume", videoPlayer.volume);
     }
@@ -173,9 +206,8 @@ dropZone.addEventListener("click", () => {
     fileInput.click();
 });
 
-// For the click-to-upload
 fileInput.addEventListener("change", (e) => {
-    handleFiles(e.target.files);
+    saveEncoding(e.target.files); // after the click the files should also be saved
 });
 
 dropZone.addEventListener("dragover", (e) => {
@@ -184,45 +216,43 @@ dropZone.addEventListener("dragover", (e) => {
 
 dropZone.addEventListener("drop", (e) => {
     e.preventDefault();
-    handleFiles(e.dataTransfer.files); 
+    saveEncoding(e.dataTransfer.files); 
 });
 
-function handleFiles(files) {
+
+
+function saveEncoding(files) {
     for (let file of files) {
         const reader = new FileReader(); // if i just use the URL.createOBJECTURL it does not persist across sessions.
-        reader.onload = function(e) { // when the file is loaded 
-            playlist.push({
+        reader.onload = function(e) { //hen the file is loaded 
+            playlistVid.push({
                 name: file.name,
                 src: e.target.result  //set the src to the video's encoding using a Base64 string 
             });
-            upsertPlaylist();
-        };
+             upsertPlaylist();
+    };
         reader.readAsDataURL(file); // read the file as a Base64 string
     }
 }
 
 
-// ----------------- Video/Playlist functions -----------------
+
+// ----------------- Video/playlistVid functions -----------------
 
 
-function upsertPlaylist() {
-    playlistContainer.innerHTML = "";
 
-    // First update localStorage to ensure persistence
-    localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
-
-    // Then update the UI
-    playlist.forEach((video, index) => {
+function upsertPlaylist(){
+    playlist.innerHTML = "";
+    playlistVid.forEach((video, index) => {
         const newVideo = addVideo(video, index);
-        playlistContainer.appendChild(newVideo);
+        playlist.appendChild(newVideo);
     });
-
-    localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
+    localStorage.setItem('videoPlaylist', JSON.stringify(playlistVid));
 }
 
 function addVideo(vid,index) {
     const newVideo = document.createElement("div");
-    newVideo.className = "video-item";
+    newVideo.className ="videoElem";
     newVideo.textContent = vid.name
     newVideo.dataset.index = index; //store the new video's index
 
@@ -249,37 +279,28 @@ function addVideo(vid,index) {
     return newVideo;
 }
 
-function playVideo(index) {
+function playVideo(index){
     currentVideo = index;
     localStorage.setItem("currentVideo",currentVideo);
-    videoPlayer.src = playlist[currentVideo].src;
+    videoPlayer.src = playlistVid[currentVideo].src;
     videoPlayer.play();
     isPlaying = true;
 }
 
 
 function removeVideo(index) {
-      // Remove from playlist array
-      playlist.splice(index, 1);
-
-      // Handle currently playing video
-      if (playlist.length === 0) {
-          // If playlist is empty
+      playlistVid.splice(index, 1);
+      if (playlistVid.length === 0) {
           videoPlayer.src = '';
           currentVideo = 0;
       } else {
-          // If we removed the current video or a video before it
           if (index <= currentVideo) {
               currentVideo = Math.max(0, currentVideo - 1);
               playVideo(currentVideo);
           }
       }
-  
-      // Update localStorage for both playlist and currentVideo
-      localStorage.setItem("currentVideo", currentVideo);
-      localStorage.setItem('videoPlaylist', JSON.stringify(playlist));
-      
-      // Update UI last
+        localStorage.setItem("currentVideo", currentVideo);
+      localStorage.setItem('videoPlaylist', JSON.stringify(playlistVid));
       upsertPlaylist();
 }
 
@@ -300,9 +321,9 @@ function dragDrop(e) {
     e.preventDefault(); // needed to allow drop
     const toIdx = parseInt(e.target.dataset.index);
 
-    const tmp = playlist[fromIdx];
-    playlist[fromIdx] = playlist[toIdx];
-    playlist[toIdx] = tmp;
+    const tmp = playlistVid[fromIdx];
+    playlistVid[fromIdx] = playlistVid[toIdx];
+    playlistVid[toIdx] = tmp;
     upsertPlaylist();
 
     playVideo(currentVideo); // play the video at the new index
@@ -315,62 +336,74 @@ function dragDrop(e) {
 // ----------------- Drawing functions -----------------
 
 
-function drawFrame() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-    const selectedEffect = document.getElementById("effectSelect").value;
-    applyEffect(selectedEffect);
+function drawFrame(context,videosrc) {
+    const selectedEffect = document.getElementById("effectSelect").value || "none";
+    context.clearRect(0,0,context.canvas.width,context.canvas.height);
+    applyEffect(selectedEffect,context,videosrc);
     drawControls(); 
-    requestAnimationFrame(drawFrame);
+    requestAnimationFrame(() => drawFrame(context,videosrc));
 }
 
 function drawControls() {
-    const ctrlY = canvas.height-50; // move buttons down
-    const pbY = ctrlY -20; // put progress bar above buttons
+    const ctrlY = canvas.height-50; //y coordinates for prev next volume mute - should be in line
+    const pbY = ctrlY -20; // progress bar y (it should be above the buttons)
     
     drawProgressbar(ctx, canvas.width, pbY);
     drawPlayPauseButton(ctx, ctrlY);
     drawPrevNextButton(ctx, ctrlY);
     drawVolume(ctx, canvas.width, ctrlY);
+    drawMuteButton(ctx,canvas.width,ctrlY);
 }
 
-
-
-function drawPlayPauseButton(ctx, ctrlY) {
-    const buttonX = 20;
-    const buttonSize = 40;
+function drawMuteButton(ctx, width, ctrlY) {
+    const muteX = width - 130;
+    const btnSize = 60;
 
     ctx.fillStyle = "white";
-    ctx.fillRect(buttonX, ctrlY, buttonSize, buttonSize);
+    ctx.fillRect(muteX, ctrlY, btnSize, btnSize- 20);
 
+    ctx.strokeStyle = "black";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(muteX,ctrlY, btnSize, btnSize-20);
     ctx.fillStyle = "black";
-    if (videoPlayer.paused) {
-        ctx.beginPath();
-        ctx.moveTo(buttonX + 10, ctrlY + 10);
-        ctx.lineTo(buttonX + 10, ctrlY + 30);
-        ctx.lineTo(buttonX + 30, ctrlY + 20);
-        ctx.fill();
-    } else {
-        ctx.fillRect(buttonX + 10, ctrlY + 10, 10, 20);
-        ctx.fillRect(buttonX + 25, ctrlY + 10, 10, 20);
-    }
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const text = videoPlayer.muted ? "Unmute" : "Mute"; 
+    ctx.fillText(text, muteX+30, ctrlY+20);
+    
+}
+
+function drawPlayPauseButton(ctx, ctrlY) {
+    const btnX = 20;
+    const btnSize = 40;
+
+    ctx.fillStyle = "white";
+    ctx.fillRect(btnX, ctrlY, btnSize, btnSize);
+    ctx.fillStyle = "black";
+    ctx.font = "14px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const text = videoPlayer.paused ? "Start" : "Stop"; 
+    ctx.fillText(text, btnX+20, ctrlY + 20);
 }
 
 function drawPrevNextButton(ctx, ctrlY) {
-    const buttonSize = 40;
+    const btnSize = 40;
 
     //this is prevBtn
     ctx.fillStyle = "white";
-    ctx.fillRect(70, ctrlY, buttonSize, buttonSize);
+    ctx.fillRect(70, ctrlY, btnSize, btnSize);
     ctx.fillStyle = "black";
     ctx.beginPath();
-    ctx.moveTo(100,ctrlY + 10);
-    ctx.lineTo(80,ctrlY + 20);
+    ctx.moveTo(100,ctrlY +10);
+    ctx.lineTo(80,ctrlY+ 20);
     ctx.lineTo(100, ctrlY + 30);
     ctx.fill();
 
     //this is nextBtn
     ctx.fillStyle = "white";
-    ctx.fillRect(120, ctrlY, buttonSize, buttonSize);
+    ctx.fillRect(120, ctrlY, btnSize, btnSize);
     ctx.fillStyle = "black";
     ctx.beginPath();
     ctx.moveTo(130,ctrlY + 10);
@@ -380,26 +413,26 @@ function drawPrevNextButton(ctx, ctrlY) {
 }
 
 function drawVolume(ctx, width, ctrlY) {
-    const volumeX = width - 60;
-    const buttonSize = 40;
+    const volumeX = width - 45;
+    const btnSize = 40;
 
     ctx.fillStyle = "white";
-    ctx.fillRect(volumeX, ctrlY, 40, buttonSize);
+    ctx.fillRect(volumeX, ctrlY, 40, btnSize);
 
     const volumeLevel = videoPlayer.volume;
     ctx.fillStyle = "black";
 
-    const volumeHeight = volumeLevel * buttonSize;
-    ctx.fillRect(volumeX + 10, ctrlY +(buttonSize-volumeHeight),20, volumeHeight);
+    const volumeHeight = volumeLevel * btnSize;
+    ctx.fillRect(volumeX + 10, ctrlY +(btnSize-volumeHeight),20, volumeHeight);
 }
 
 function drawProgressbar(ctx, width, pbY) {
     const pbH =10;
 
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; //transparent 
     ctx.fillRect(0, pbY-pbH, width, pbH);
 
-    const progress = videoPlayer.currentTime /videoPlayer.duration || 0;
+    const progress = videoPlayer.currentTime/ videoPlayer.duration ||0; // get percentage of video for drawing
     ctx.fillStyle = "white";
     ctx.fillRect(0, pbY -pbH, width*progress, pbH);
 }
@@ -408,86 +441,56 @@ function drawProgressbar(ctx, width, pbY) {
 // ----------------- EFFECTS REQUIREMENT  -----------------
 
 
-function applyEffect(effect) {
-        switch (effect) {
-            case "pixelate":
-                pixelEffect();
-                break;
-            case "colorShift":
-                colorShiftEffect();
-                break;
-            case "wave":
-                waveEffect();
-                break;
-            default:
-                ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-        }
-    }    
-
-
-
-
-function pixelEffect() {
-    const pixelSize = 10;
-
-    ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const data = imageData.data;
-
-    for (let y = 0; y < canvas.height; y += pixelSize) {
-        for (let x = 0; x < canvas.width; x += pixelSize) {
-            const index = (y * canvas.width + x) * 4;
-            const red = data[index];
-            const green = data[index + 1];
-            const blue = data[index + 2];
-
-            for (let dy = 0; dy < pixelSize; dy++) {
-                for (let dx = 0; dx < pixelSize; dx++) {
-                    const offset = ((y + dy) * canvas.width + (x + dx)) * 4;
-                    data[offset] = red;
-                    data[offset + 1] = green;
-                    data[offset + 2] = blue;
-                }
-            }
-        }
-    }
-
-    ctx.putImageData(imageData, 0, 0);
-}
-
-function waveEffect() {
-    const amp = 20; 
-    const freq = 0.05; 
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    for (let y = 0; y < canvas.height; y++) {
-        const offset = Math.sin(y * freq) * amp;
-        ctx.drawImage(
-            videoPlayer,
-            0,
-            y,
-            canvas.width,
-            1,
-            offset,
-            y,
-            canvas.width,
-            1
-        );
+function applyEffect(effect,context,videosrc){
+    if (effect === "pixelate") {
+        pixelEffect(context);
+    } else if (effect === "colorShift") {
+        invertEffect(context);
+    } else if (effect === "hue") {
+        hueEffect(context);
+    } else {
+        context.drawImage(videosrc, 0, 0, context.canvas.width, context.canvas.height); // no effect
     }
 }
+  
 
 
-function colorShiftEffect() {
-    ctx.drawImage(videoPlayer, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+function pixelEffect(context){
+    const pixelSize = 5; // Size of each "pixel"
+
+    const scaledWidth = context.canvas.width / pixelSize;
+    const scaledHeight = context.canvas.height / pixelSize;
+
+    context.drawImage(videoPlayer, 0, 0, scaledWidth, scaledHeight);
+    context.imageSmoothingEnabled = false; 
+    context.drawImage(canvas, 0, 0, scaledWidth, scaledHeight, 0, 0, context.canvas.width, context.canvas.height);
+}
+
+function hueEffect(context) {
+    context.drawImage(videoPlayer, 0, 0, context.canvas.width, context.canvas.height);
+    const imageData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
     const data = imageData.data;
 
     for (let i = 0; i < data.length; i += 4) {
-        data[i] += 50; // R
-        data[i + 1] += 50; // G
-        data[i + 2] += 50; // B
-    }
+        // Rotate RGB values
+        const r = data[i];
+        data[i] = data[i + 1];     // R becomes G
+        data[i + 1] = data[i + 2]; // G becomes B
+        data[i + 2] = r;           // B becomes R
+}
+    context.putImageData(imageData, 0, 0);
+}
 
-    ctx.putImageData(imageData, 0, 0);
+
+function invertEffect(context) {
+    context.drawImage(videoPlayer, 0, 0, context.canvas.width, context.canvas.height);
+    const imageData = context.getImageData(0, 0, context.canvas.width, context.canvas.height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+        data[i] = 255 - data[i];         // Invert R
+        data[i + 1] = 255 - data[i + 1]; // Invert G
+        data[i + 2] = 255 - data[i + 2]; // Invert B
+    }
+    context.putImageData(imageData, 0, 0);
 }

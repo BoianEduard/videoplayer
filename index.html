@@ -4,44 +4,35 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player</title>
-    
-    <link rel="icon" href="data:,"> <!-- stop favicon error from showing -->
+    <link rel="icon" href="data:,">
     <link rel="stylesheet" href="stylesheet.css">
 </head>
 <body>
-
-    <video id="videoPlayer" class="hidden" autoplay>
-        <source src="" type="video/mp4"> 
+    <video id="videoPlayer" class="hidden" muted autoplay>
+        <source src="" type="video/mp4">
     </video>
-
-    <video id="previewVideo" class="hidden"> 
-        <source src="" type="video/mp4"> 
+    
+    <video id="previewVideo" class="hidden">
+        <source src="" type="video/mp4">
     </video>
-
-    <div class="container-video">
-        <canvas id="mainCanvas"></canvas>
-        <canvas id="previewCanvas" class="preview-canvas"></canvas>
-    </div>
-
-    <div class="effect-container">
-        <label for="effectSelect">Choose an effect:</label>
-        <select id="effectSelect" aria-label="Select video effect">
-            <option value="none">No Effect</option>
-            <option value="pixelate">Pixelate</option>
-            <option value="colorShift">Color Shift</option>
-            <option value="wave">Wave Effect</option>
-        </select>
-    </div>
-
-     <div id="playlist" class="playlist">
-        <h3>Video Playlist</h3>
-    </div>
-
-    <div id="dropZone" class="dropzone">
-        <p>Drop videos here</p>
-        <input type="file" id="fileInput" accept="video/*" multiple aria-label="Upload video files">
-    </div>
-
+    
+    <canvas id="mainCanvas"></canvas>
+    <canvas id="previewCanvas" class="preview-canvas"></canvas>
+    
+    <label for="effectSelect" id="effectText"> Effects </label>
+    <select id="effectSelect">
+        <option value="none"> - </option>
+        <option value="pixelate">Pixelate</option>
+        <option value="colorShift">Invert  </option>
+        <option value="hue"> Hue </option>
+    </select>
+    
+    <h3> Playlist Video</h3>
+    <ul id="playlist"></ul>
+    
+    <label for="fileInput" id="dropZone"> Drop video files here </label>
+    <input type="file" id="fileInput" accept="video/*">
+    
     <script src="index.js"></script>
 </body>
 </html>
